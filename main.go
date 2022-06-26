@@ -13,13 +13,36 @@ import (
 
 var nameStartsWith string
 var offset int = 0
+var total int = 0
+var limit int = 10
+
+type Response struct {
+	Code int  `json:"code"`
+	Data Data `json:"data"`
+}
+
+type Data struct {
+	Offset  int       `json:"offset"`
+	Limit   int       `json:"limit"`
+	Total   int       `json:"total"`
+	Results []Results `json:"results"`
+}
+
+type Results struct {
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Thumbnail   Thumbnail `json:"thumbnail"`
+}
+type Thumbnail struct {
+	Path string `json:"path"`
+}
 
 func main() {
-
 	fmt.Println("Enter your charecter name or just hit enter to start: ")
 	fmt.Scanf("%s", &nameStartsWith)
 	fmt.Println("--------------------------------------------")
 	results := get_marvel_data()
+
 	print_results(results)
 
 	nextAction()
@@ -29,20 +52,25 @@ func main() {
 func nextAction() {
 	fmt.Println("****************************************")
 	fmt.Println("Choose your next action : ")
-	fmt.Println("Type `next` for next page")
-	fmt.Println("Type `prev` for previous page")
-	fmt.Println("Type `new` for new search")
-	fmt.Println("Type `exit` to quit")
+	fmt.Println("Type `next` for next page, `prev` for previous page, `new` for new search, `exit` to quit")
 	fmt.Println("****************************************")
 	var action string
 	fmt.Scanf("%s", &action)
 
 	switch action {
 	case "next":
-		offset = offset + 10
+		offset = offset + limit
+
+		if offset > total {
+			fmt.Println("****************************************")
+			fmt.Println("No more records")
+			fmt.Println("****************************************")
+			nextAction()
+		}
+
 	case "prev":
 		if offset > 0 {
-			offset = offset - 10
+			offset = offset - limit
 		} else {
 			fmt.Println("****************************************")
 			fmt.Println("No previous page")
@@ -68,23 +96,22 @@ func nextAction() {
 
 }
 
-func print_results(results []interface{}) {
-	for _, v := range results {
-		data_json, _ := json.Marshal(v)
-		var results map[string]interface{}
-		json.Unmarshal([]byte(data_json), &results)
-		thumb := results["thumbnail"].(map[string]interface{})
-		fmt.Println("Name: ", results["name"])
-		fmt.Println("Description: ", results["description"])
-		fmt.Println("Image: ", thumb["path"])
+func print_results(results Data) {
+	total = results.Total
+	fmt.Println("Total: ", total)
+	for _, v := range results.Results {
+		thumb := v.Thumbnail
+		fmt.Println("Name: ", v.Name)
+		fmt.Println("Description: ", v.Description)
+		fmt.Println("Image: ", thumb.Path)
 		fmt.Println("-------------------------------------")
 		time.Sleep(100 * time.Millisecond)
 	}
 	fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 }
 
-func get_marvel_data() []interface{} {
-	limit := 10
+func get_marvel_data() Data {
+	fmt.Println("Fetching....")
 	marvel_public_key := "302a803057c0480f5186b710a5454fc5"
 	marvel_private_key := "ae2a810470116365dfb19025b37a5e39df4c7a1e"
 	tNow := time.Now()
@@ -108,15 +135,16 @@ func get_marvel_data() []interface{} {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
+
+	var res Response
+
+	if err := json.Unmarshal(body, &res); err != nil {
 		panic(err)
 	}
-	data := result["data"]
-	data_marshal, _ := json.Marshal(data)
-	var results map[string]interface{}
-	json.Unmarshal([]byte(data_marshal), &results)
-	resp_results := results["results"].([]interface{})
-	return resp_results
 
+	if res.Code == 200 {
+		return res.Data
+	} else {
+		return Data{}
+	}
 }
