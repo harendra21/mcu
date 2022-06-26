@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/allegro/bigcache/v3"
 )
 
 var nameStartsWith string
@@ -111,40 +113,58 @@ func print_results(results Data) {
 }
 
 func get_marvel_data() Data {
-	fmt.Println("Fetching....")
-	marvel_public_key := "302a803057c0480f5186b710a5454fc5"
-	marvel_private_key := "ae2a810470116365dfb19025b37a5e39df4c7a1e"
-	tNow := time.Now()
-	tUnix := tNow.Unix()
-	hash_str := fmt.Sprintf("%d%s%s", tUnix, marvel_private_key, marvel_public_key)
-	hash_data := []byte(hash_str)
-	hash := md5.Sum(hash_data)
 
-	url := fmt.Sprintf("https://gateway.marvel.com/v1/public/characters?ts=%d&apikey=%s&hash=%x&limit=%d&offset=%d", tUnix, marvel_public_key, hash, limit, offset)
-
-	if nameStartsWith != "" {
-		url = fmt.Sprintf("%s&nameStartsWith=%s", url, nameStartsWith)
-	}
-
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	var res Response
-
-	if err := json.Unmarshal(body, &res); err != nil {
-		panic(err)
-	}
-
-	if res.Code == 200 {
+	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+	key := fmt.Sprintf("marvel_%s", nameStartsWith)
+	entry, _ := cache.Get(key)
+	if entry != nil {
+		var res Response
+		if err := json.Unmarshal(entry, &res); err != nil {
+			panic(err)
+		}
 		return res.Data
 	} else {
-		return Data{}
+		fmt.Println("Fetching....")
+		marvel_public_key := "302a803057c0480f5186b710a5454fc5"
+		marvel_private_key := "ae2a810470116365dfb19025b37a5e39df4c7a1e"
+		tNow := time.Now()
+		tUnix := tNow.Unix()
+		hash_str := fmt.Sprintf("%d%s%s", tUnix, marvel_private_key, marvel_public_key)
+		hash_data := []byte(hash_str)
+		hash := md5.Sum(hash_data)
+
+		url := fmt.Sprintf("https://gateway.marvel.com/v1/public/characters?ts=%d&apikey=%s&hash=%x&limit=%d&offset=%d", tUnix, marvel_public_key, hash, limit, offset)
+
+		if nameStartsWith != "" {
+			url = fmt.Sprintf("%s&nameStartsWith=%s", url, nameStartsWith)
+		}
+
+		resp, err := http.Get(url)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		var res Response
+
+		if err := json.Unmarshal(body, &res); err != nil {
+			panic(err)
+		}
+
+		if res.Code == 200 {
+			err = cache.Set(key, body)
+			if err != nil {
+				panic(err)
+			}
+			return res.Data
+		} else {
+			return Data{}
+		}
+
 	}
+
 }
