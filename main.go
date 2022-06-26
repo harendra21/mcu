@@ -20,8 +20,9 @@ var limit int = 10
 var cache *bigcache.BigCache
 
 type Response struct {
-	Code int  `json:"code"`
-	Data Data `json:"data"`
+	Code   int    `json:"code"`
+	Status string `json:"status"`
+	Data   Data   `json:"data"`
 }
 
 type Data struct {
@@ -121,7 +122,7 @@ func get_marvel_data() Data {
 	if len(entry) > 0 {
 		var res Response
 		if err := json.Unmarshal(entry, &res); err != nil {
-			panic(err)
+			log.Fatalln(err)
 		}
 		return res.Data
 	} else {
@@ -153,16 +154,22 @@ func get_marvel_data() Data {
 		var res Response
 
 		if err := json.Unmarshal(body, &res); err != nil {
-			panic(err)
+			defer log.Fatalln(err)
+			var body_json map[string]interface{}
+			json.Unmarshal(body, &body_json)
+			fmt.Println(body_json["code"])
+			fmt.Println(body_json["message"])
+			main()
 		}
 
 		if res.Code == 200 {
 			err = cache.Set(key, body)
 			if err != nil {
-				panic(err)
+				log.Fatalln(err)
 			}
 			return res.Data
 		} else {
+			fmt.Println(res.Status)
 			return Data{}
 		}
 
