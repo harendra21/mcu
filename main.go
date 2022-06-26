@@ -17,6 +17,7 @@ var nameStartsWith string
 var offset int = 0
 var total int = 0
 var limit int = 10
+var cache *bigcache.BigCache
 
 type Response struct {
 	Code int  `json:"code"`
@@ -40,6 +41,7 @@ type Thumbnail struct {
 }
 
 func main() {
+	cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 	fmt.Println("Enter your charecter name or just hit enter to start: ")
 	fmt.Scanf("%s", &nameStartsWith)
 	fmt.Println("--------------------------------------------")
@@ -114,10 +116,9 @@ func print_results(results Data) {
 
 func get_marvel_data() Data {
 
-	cache, _ := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
-	key := fmt.Sprintf("marvel_%s", nameStartsWith)
+	key := fmt.Sprintf("marvel_%s_%d", nameStartsWith, offset)
 	entry, _ := cache.Get(key)
-	if entry != nil {
+	if len(entry) > 0 {
 		var res Response
 		if err := json.Unmarshal(entry, &res); err != nil {
 			panic(err)
