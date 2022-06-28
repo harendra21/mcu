@@ -43,6 +43,7 @@ type Thumbnail struct {
 }
 
 func main() {
+	cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 
 	fmt.Println("Enter your charecter name or just hit enter to start: ")
 	fmt.Scanf("%s", &nameStartsWith)
@@ -112,10 +113,8 @@ func printResults(results Data) {
 }
 
 func getMarvelData() Data {
-	cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 
 	key := fmt.Sprintf("marvel_%s_%d", nameStartsWith, offset)
-
 	entry, _ := cache.Get(key)
 	if len(entry) > 0 && !testing_mode {
 		var res Response

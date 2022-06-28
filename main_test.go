@@ -1,11 +1,17 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"github.com/allegro/bigcache/v3"
+)
 
 func init() {
 	testing_mode = true
 	nameStartsWith = "sp"
 	limit = 10
+	cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 }
 
 func TestGetMarvelData(t *testing.T) {
