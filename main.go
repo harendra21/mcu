@@ -18,6 +18,7 @@ var offset int = 0
 var total int = 0
 var limit int = 10
 var cache *bigcache.BigCache
+var testing_mode bool = false
 
 type Response struct {
 	Code   int    `json:"code"`
@@ -42,16 +43,13 @@ type Thumbnail struct {
 }
 
 func main() {
-	cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+
 	fmt.Println("Enter your charecter name or just hit enter to start: ")
 	fmt.Scanf("%s", &nameStartsWith)
 	fmt.Println("--------------------------------------------")
-	results := get_marvel_data()
-
-	print_results(results)
-
+	results := getMarvelData()
+	printResults(results)
 	nextAction()
-
 }
 
 func nextAction() {
@@ -65,14 +63,12 @@ func nextAction() {
 	switch action {
 	case "next":
 		offset = offset + limit
-
 		if offset > total {
 			fmt.Println("****************************************")
 			fmt.Println("No more records")
 			fmt.Println("****************************************")
 			nextAction()
 		}
-
 	case "prev":
 		if offset > 0 {
 			offset = offset - limit
@@ -95,13 +91,13 @@ func nextAction() {
 		nextAction()
 	}
 
-	results := get_marvel_data()
-	print_results(results)
+	results := getMarvelData()
+	printResults(results)
 	nextAction()
 
 }
 
-func print_results(results Data) {
+func printResults(results Data) {
 	total = results.Total
 	fmt.Println("Total: ", total)
 	for _, v := range results.Results {
@@ -109,17 +105,19 @@ func print_results(results Data) {
 		fmt.Println("Name: ", v.Name)
 		fmt.Println("Description: ", v.Description)
 		fmt.Println("Image: ", thumb.Path)
-		fmt.Println("-------------------------------------")
+		fmt.Println("------------------------------------------------------------------------")
 		time.Sleep(100 * time.Millisecond)
 	}
 	fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 }
 
-func get_marvel_data() Data {
+func getMarvelData() Data {
+	cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
 
 	key := fmt.Sprintf("marvel_%s_%d", nameStartsWith, offset)
+
 	entry, _ := cache.Get(key)
-	if len(entry) > 0 {
+	if len(entry) > 0 && !testing_mode {
 		var res Response
 		if err := json.Unmarshal(entry, &res); err != nil {
 			log.Fatalln(err)
@@ -159,13 +157,18 @@ func get_marvel_data() Data {
 			json.Unmarshal(body, &body_json)
 			fmt.Println(body_json["code"])
 			fmt.Println(body_json["message"])
-			main()
+			if !testing_mode {
+				main()
+			}
+
 		}
 
 		if res.Code == 200 {
-			err = cache.Set(key, body)
-			if err != nil {
-				log.Fatalln(err)
+			if !testing_mode {
+				err = cache.Set(key, body)
+				if err != nil {
+					log.Fatalln(err)
+				}
 			}
 			return res.Data
 		} else {
